@@ -1,4 +1,4 @@
--- Connected Discord-GitHub | Roblox Username: squiddy092 | Discord Username: tyler.is.cool
+-- Connected Discord-GitHub : Roblox Username: squiddy092 : Discord Username: tyler.is.cool
 
 -- // CONFIGURATION
 
