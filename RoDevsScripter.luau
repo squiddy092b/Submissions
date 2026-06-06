@@ -188,7 +188,6 @@ function Projectile:Update(deltaTime: number)
 		if hum and hum.Health > 0 then
 			didHit = true
 			self:Hit(hum)
-			break
 		end
 	end
 	
