@@ -140,7 +140,10 @@ end
 function Projectile:Update(deltaTime: number)
 	-- If it is being destroyed then don't continue, since this is a function that's being run continously we
 	-- don't want to risk running it while the projectile is being destroyed to prevent errors
-	if not self.Active or not self.Part or not self.HumanoidRootPart then return end
+	if not self.Active or not self.Part or not self.HumanoidRootPart then 
+		self:Destroy()
+		return
+	end
 
 	self.TimePassed += deltaTime
 	-- Updating new position, so old position is the current position
@@ -174,11 +177,11 @@ function Projectile:Update(deltaTime: number)
 	
 	-- Checking if we hit anything with a raycast
 	local didHit = self:HasLanded(lastPosition, self.CurrentPosition)
-	
 	local overlapParams = OverlapParams.new()
+	
 	overlapParams.FilterDescendantsInstances = {self.Character, self.Part}
 	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
-
+	
 	local partsInBox = workspace:GetPartBoundsInBox(self.Part.CFrame, Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE), overlapParams)
 
 	-- Checking if we hit anything again, with a hitbox, for good measure
@@ -188,11 +191,9 @@ function Projectile:Update(deltaTime: number)
 		if hum and hum.Health > 0 then
 			didHit = true
 			self:Hit(hum)
+			break
 		end
 	end
-	
-	-- If we have already hit something then we don't have to continue
-	if didHit then return end
 
 	-- CFrame and spinning math
 	local spinAngle = self.TimePassed * ROTATION_SPEED
@@ -203,6 +204,8 @@ function Projectile:Update(deltaTime: number)
 	else
 		self.Part.CFrame = CFrame.new(self.CurrentPosition) * CFrame.Angles(0, spinAngle, 0)
 	end
+	
+	overlapParams = nil
 end
 
 -- On hit
@@ -229,7 +232,9 @@ end
 -- Destroy projectile and all memory associated with it
 function Projectile:Destroy()
 	-- Don't start destroying if it's already being destroyed
-	if not self.Active then return end
+	if not self.Active then
+		return
+	end
 	
 	self.Active = false
 
