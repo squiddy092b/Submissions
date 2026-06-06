@@ -4,7 +4,7 @@
 
 local SPEED = 100
 local ROTATION_SPEED = 20
-local HITBOX_SIZE = 2.5
+local HITBOX_SIZE = 4
 
 -- // SERVICES
 
@@ -27,11 +27,11 @@ ProjectileParams.IgnoreWater = true
 
 -- Initialize projectile
 function Projectile.new(player: Player, originCframe: CFrame, targetPos: Vector3)
-	local self = setmetatable({}, Projectile) :: any
+	local self = setmetatable({}, Projectile)
 
 	self.Player = player
 	self.Character = player.Character or player.CharacterAdded:Wait()
-	self.HumanoidRootPart = self.Character:WaitForChild("HumanoidRootPart") :: BasePart
+	self.HumanoidRootPart = self.Character:WaitForChild("HumanoidRootPart")
 
 	self.Origin = originCframe.Position
 	self.Target = targetPos
@@ -45,7 +45,11 @@ function Projectile.new(player: Player, originCframe: CFrame, targetPos: Vector3
 	self.Direction = (self.Target - self.Origin).Unit
 	self.Distance = (self.Target - self.Origin).Magnitude
 
-	self.RightVector = originCframe.RightVector * (self.Distance * .25)
+	-- Randomness in the curve to make it look better
+	local randomOffset = math.random(1, 2) == 1 and 1 or -1
+
+	self.RightVector = originCframe.RightVector * (self.Distance * .25) * randomOffset
+	self.UpVector = Vector3.new(0, math.random(2, 5), 0)
 
 	-- Create the physical projectile part
 	self:CreateProjectile(originCframe)
@@ -167,10 +171,28 @@ function Projectile:Update(deltaTime: number)
 			return
 		end
 	end
-
-	-- If we have already hit something then we don't have to continue
+	
+	-- Checking if we hit anything with a raycast
 	local didHit = self:HasLanded(lastPosition, self.CurrentPosition)
 	
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterDescendantsInstances = {self.Character, self.Part}
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	local partsInBox = workspace:GetPartBoundsInBox(self.Part.CFrame, Vector3.new(HITBOX_SIZE, HITBOX_SIZE, HITBOX_SIZE), overlapParams)
+
+	-- Checking if we hit anything again, with a hitbox, for good measure
+	for _, part in partsInBox do
+		local model = part:FindFirstAncestorOfClass("Model")
+		local hum = model and model:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 then
+			didHit = true
+			self:Hit(hum)
+			break
+		end
+	end
+	
+	-- If we have already hit something then we don't have to continue
 	if didHit then return end
 
 	-- CFrame and spinning math
@@ -250,16 +272,34 @@ RunService.Heartbeat:Connect(function(deltaTime: number)
 	end
 end)
 
+-- For cooldowns
+local Debounces = {}
+
 -- Remote event to launch a projectile (fired from client on click)
 ReplicatedStorage.LaunchProjectile.OnServerEvent:Connect(function(player: Player, targetPos: Vector3)
-	local character = player.Character
-	local hrp = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not Debounces[player] then
+		Debounces[player] = true
+		
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
-	-- Ensure player is alive
-	if hrp and humanoid and humanoid.Health > 0 then
-		local spawnCFrame = hrp.CFrame * CFrame.new(0, 0, -3)
-		local newProjectile = Projectile.new(player, spawnCFrame, targetPos)
-		table.insert(CurrentProjectiles, newProjectile)
+		-- Ensure player is alive
+		if hrp and humanoid and humanoid.Health > 0 then
+			local spawnCFrame = hrp.CFrame * CFrame.new(0, 0, -3)
+			local newProjectile = Projectile.new(player, spawnCFrame, targetPos)
+			table.insert(CurrentProjectiles, newProjectile)
+		end
+		
+		task.wait(1)
+		
+		Debounces[player] = false
+	end
+end)
+
+-- Memory cleanup
+PlayerService.PlayerRemoving:Connect(function(player)
+	if Debounces[player] then
+		Debounces[player] = nil
 	end
 end)
